@@ -2085,6 +2085,9 @@
     <!-- SysUI Tuner: Switch to control if device gets unlocked by right shortcut [CHAR LIMIT=60] -->
     <string name="lockscreen_unlock_right">Right shortcut also unlocks</string>
 
+    <string name="lockscreen_default">Default</string>
+    <string name="lockscreen_hidden">None</string>
+
     <!-- SysUI Tuner: Summary of no shortcut being selected [CHAR LIMIT=60] -->
     <string name="lockscreen_none">None</string>
 

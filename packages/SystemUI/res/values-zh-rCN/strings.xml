@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- 
+<!--
 /**
  * Copyright (c) 2009, The Android Open Source Project
  *
@@ -802,6 +802,8 @@
     <string name="lockscreen_shortcut_right" msgid="3328683699505226536">"向右快捷方式"</string>
     <string name="lockscreen_unlock_left" msgid="2043092136246951985">"向左快捷方式也可以解锁设备"</string>
     <string name="lockscreen_unlock_right" msgid="1529992940510318775">"向右快捷方式也可以解锁设备"</string>
+    <string name="lockscreen_default">"默认"</string>
+    <string name="lockscreen_hidden">"无"</string>
     <string name="lockscreen_none" msgid="4783896034844841821">"无"</string>
     <string name="tuner_launch_app" msgid="1527264114781925348">"启动<xliff:g id="APP">%1$s</xliff:g>"</string>
     <string name="tuner_other_apps" msgid="4726596850501162493">"其他应用"</string>
