@@ -803,6 +803,7 @@
     <string name="lockscreen_unlock_left" msgid="2043092136246951985">"向左快捷方式也可以解锁设备"</string>
     <string name="lockscreen_unlock_right" msgid="1529992940510318775">"向右快捷方式也可以解锁设备"</string>
     <string name="lockscreen_default">"默认"</string>
+    <string name="custom_hint">"滑动图标以启动"</string>
     <string name="lockscreen_hidden">"无"</string>
     <string name="lockscreen_none" msgid="4783896034844841821">"无"</string>
     <string name="tuner_launch_app" msgid="1527264114781925348">"启动<xliff:g id="APP">%1$s</xliff:g>"</string>
