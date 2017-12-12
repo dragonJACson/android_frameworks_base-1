@@ -223,4 +223,5 @@
     <!-- OneHand mode QS tile -->
     <string name="qs_onehand_label">OneHand mode</string>
 
+    <string name="status_bar_vpn">VPN</string>
 </resources>
