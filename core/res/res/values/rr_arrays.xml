@@ -20,10 +20,6 @@
 -->
 <resources>
 
-    <!-- System font packages (overlay in vendor) -->
-    <string-array name="config_fontPackages" translatable="false">
-    </string-array>
-
     <string-array translatable="false" name="config_rebootActionsList">
         <item>restart</item>
         <item>reboot_recovery</item>

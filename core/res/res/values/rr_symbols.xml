@@ -77,9 +77,6 @@
     <!-- On-The-Go -->
     <java-symbol type="drawable" name="ic_lock_onthego" />
 
-    <!-- System fonts -->
-    <java-symbol type="array" name="config_fontPackages" />
-
   <!-- Power menu reboot -->
   <java-symbol name="reboot_to_bootloader_title" type="string" />
   <java-symbol name="reboot_to_bootloader_message" type="string" />
@@ -131,7 +128,7 @@
   <java-symbol type="anim" name="slow_fade_in" />
   <java-symbol type="anim" name="slow_fade_out" />
   <java-symbol type="anim" name="slide_in_up_ribbon" />
-  <java-symbol type="anim" name="slide_out_down_ribbon" /> 
+  <java-symbol type="anim" name="slide_out_down_ribbon" />
   <java-symbol type="anim" name="slide_in_right_no_fade" />
   <java-symbol type="anim" name="slide_out_left_no_fade" />
   <java-symbol type="anim" name="slide_in_left_no_fade" />

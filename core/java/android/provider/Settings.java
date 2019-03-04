@@ -4652,10 +4652,10 @@ public final class Settings {
          */
         public static final String SCREENSHOT_DEFAULT_MODE = "screenshot_default_mode";
 
-        /**  
+        /**
          * AOKP Custom System Animations
          * @hide
-         */  
+         */
         public static final String[] ACTIVITY_ANIMATION_CONTROLS = new String[] {
                 "activity_open",
                 "activity_close",
@@ -4668,7 +4668,7 @@ public final class Settings {
                 "wallpaper_intra_open",
                 "wallpaper_intra_close",
                 "task_open_behind",
-        };  
+        };
         public static final String ANIMATION_CONTROLS_DURATION = "animation_controls_duration";
 
         /**
@@ -4972,20 +4972,6 @@ public final class Settings {
          */
         @ChaosLab(name="GestureAnywhere", classification=Classification.NEW_FIELD)
         public static final String GESTURE_ANYWHERE_SHOW_TRIGGER = "gesture_anywhere_show_trigger";
-
-        /**
-         * Hold current font name and name of the originating package Uses "|" as a delimiter
-         *
-         * @hide
-         */
-        public static final String FONT_INFO = "font_info";
-
-        /**
-         * Hold list of installed font provider packages. Uses "|" as a delimiter
-         *
-         * @hide
-         */
-        public static final String FONT_PACKAGES = "font_packages";
 
         /**
 	     ** Change fonts for the system lockscreen clock widget
