@@ -1,5 +1,6 @@
 package com.android.systemui.statusbar.policy;
 
+import java.util.HashMap;
 import java.text.DecimalFormat;
 
 import android.animation.ArgbEvaluator;
@@ -14,6 +15,8 @@ import android.graphics.drawable.Drawable;
 import android.graphics.PorterDuff.Mode;
 import android.graphics.Rect;
 import android.net.ConnectivityManager;
+import android.net.LinkProperties;
+import android.net.Network;
 import android.net.NetworkInfo;
 import android.net.TrafficStats;
 import android.net.Uri;
@@ -57,8 +60,6 @@ public class NetworkTraffic extends TextView implements DarkReceiver {
 
     private boolean mIsEnabled;
     private boolean mAttached;
-    private long totalRxBytes;
-    private long totalTxBytes;
     private long lastUpdateTime;
     private int txtSize;
     private int txtImgPadding;
@@ -66,6 +67,8 @@ public class NetworkTraffic extends TextView implements DarkReceiver {
     private int mTintColor;
     private int mDarkModeFillColor;
     private int mLightModeFillColor;
+    private HashMap<String, IfaceTrafficStats> mActiveIfaceStats;
+    private boolean mIsStatsDirty;
 
     private boolean mScreenOn = true;
 
@@ -86,11 +89,17 @@ public class NetworkTraffic extends TextView implements DarkReceiver {
             }
             lastUpdateTime = SystemClock.elapsedRealtime();
 
+            if (mIsStatsDirty) {
+                if (refreshActiveIfaces()) {
+                    mIsStatsDirty = false;
+                } else {
+                    return;
+                }
+            }
+
             // Calculate the data rate from the change in total bytes and time
-            long newTotalRxBytes = TrafficStats.getTotalRxBytes();
-            long newTotalTxBytes = TrafficStats.getTotalTxBytes();
-            long rxData = newTotalRxBytes - totalRxBytes;
-            long txData = newTotalTxBytes - totalTxBytes;
+            long rxData = diffAndUpdateRxBytes();
+            long txData = diffAndUpdateTxBytes();
 
             if (shouldHide(rxData, txData, timeDelta)) {
                 setText("");
@@ -113,8 +122,6 @@ public class NetworkTraffic extends TextView implements DarkReceiver {
             }
 
             // Post delayed message to refresh in ~1000ms
-            totalRxBytes = newTotalRxBytes;
-            totalTxBytes = newTotalTxBytes;
             clearHandlerCallbacks();
             mTrafficHandler.postDelayed(mRunnable, INTERVAL);
         }
@@ -134,7 +141,7 @@ public class NetworkTraffic extends TextView implements DarkReceiver {
         private boolean shouldHide(long rxData, long txData, long timeDelta) {
             long speedTxKB = (long)(txData / (timeDelta / 1000f)) / KB;
             long speedRxKB = (long)(rxData / (timeDelta / 1000f)) / KB;
-            return !getConnectAvailable() ||
+            return mActiveIfaceStats.size() == 0 ||
                     (speedRxKB < mAutoHideThreshold &&
                     speedTxKB < mAutoHideThreshold);
         }
@@ -204,6 +211,8 @@ public class NetworkTraffic extends TextView implements DarkReceiver {
         Handler mHandler = new Handler();
         SettingsObserver settingsObserver = new SettingsObserver(mHandler);
         settingsObserver.observe();
+        /* Prepare for extreme case: WiFi + Mobile + Bluetooth + Ethernet */
+        mActiveIfaceStats = new HashMap<>(4);
         setMode();
         updateSettings();
     }
@@ -220,6 +229,7 @@ public class NetworkTraffic extends TextView implements DarkReceiver {
             mContext.registerReceiver(mIntentReceiver, filter, null, getHandler());
         }
         Dependency.get(DarkIconDispatcher.class).addDarkReceiver(this);
+        mIsStatsDirty = true;
         updateSettings();
     }
 
@@ -240,6 +250,7 @@ public class NetworkTraffic extends TextView implements DarkReceiver {
             if (action == null) return;
 
             if (action.equals(ConnectivityManager.CONNECTIVITY_ACTION) && mScreenOn) {
+                mIsStatsDirty = true;
                 updateSettings();
             } else if (action.equals(Intent.ACTION_SCREEN_ON)) {
                 mScreenOn = true;
@@ -251,17 +262,67 @@ public class NetworkTraffic extends TextView implements DarkReceiver {
         }
     };
 
-    private boolean getConnectAvailable() {
+    private long diffAndUpdateTxBytes() {
+        long txBytesDelta = 0;
+        for (String iface : mActiveIfaceStats.keySet()) {
+            IfaceTrafficStats stats = mActiveIfaceStats.get(iface);
+            long txBytes = TrafficStats.getTxBytes(iface);
+
+            txBytesDelta += txBytes - stats.mTxBytes;
+            stats.mTxBytes = txBytes;
+        }
+        return txBytesDelta;
+    }
+
+    private long diffAndUpdateRxBytes() {
+        long rxBytesDelta = 0;
+        for (String iface : mActiveIfaceStats.keySet()) {
+            IfaceTrafficStats stats = mActiveIfaceStats.get(iface);
+            long rxBytes = TrafficStats.getRxBytes(iface);
+
+            rxBytesDelta += rxBytes - stats.mRxBytes;
+            stats.mRxBytes = rxBytes;
+        }
+        return rxBytesDelta;
+    }
+
+    private boolean refreshActiveIfaces() {
         ConnectivityManager connManager =
                 (ConnectivityManager) mContext.getSystemService(Context.CONNECTIVITY_SERVICE);
-        NetworkInfo network = (connManager != null) ? connManager.getActiveNetworkInfo() : null;
-        return network != null;
+
+        mActiveIfaceStats.clear();
+
+        Network[] networks = connManager.getAllNetworks();
+        for (Network network : networks) {
+            NetworkInfo networkInfo = connManager.getNetworkInfo(network);
+            if (networkInfo == null) {
+                return false;
+            }
+
+            if (networkInfo.getType() != ConnectivityManager.TYPE_VPN) {
+                LinkProperties properties = connManager.getLinkProperties(network);
+                IfaceTrafficStats stats;
+                String iface;
+
+                /* This is likely to be null when switching data SIM */
+                if (properties == null) {
+                    return false;
+                }
+
+                iface = properties.getInterfaceName();
+                if (iface == null) return false;
+                stats = new IfaceTrafficStats();
+                stats.mRxBytes = TrafficStats.getRxBytes(iface);
+                stats.mTxBytes = TrafficStats.getTxBytes(iface);
+                mActiveIfaceStats.put(iface, stats);
+            }
+        }
+        return true;
     }
 
     private void updateSettings() {
         if (mIsEnabled) {
             if (mAttached) {
-                totalRxBytes = TrafficStats.getTotalRxBytes();
                 lastUpdateTime = SystemClock.elapsedRealtime();
                 mTrafficHandler.sendEmptyMessage(1);
             }
@@ -330,5 +391,10 @@ public class NetworkTraffic extends TextView implements DarkReceiver {
 
     private int getColorForDarkIntensity(float darkIntensity, int lightColor, int darkColor) {
         return (int) ArgbEvaluator.getInstance().evaluate(darkIntensity, lightColor, darkColor);
+    }
+
+    private static class IfaceTrafficStats {
+        public long mTxBytes;
+        public long mRxBytes;
     }
 }
