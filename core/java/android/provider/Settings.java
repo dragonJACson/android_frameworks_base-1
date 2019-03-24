@@ -5049,30 +5049,6 @@ public final class Settings {
                 BOOLEAN_VALIDATOR;
 
         /**
-         * Statusbar weather font size setting
-         * @hide
-         */
-        public static final String STATUS_BAR_WEATHER_SIZE = "status_bar_weather_size";
-
-        /**
-         * Statusbar weather font style setting
-         * @hide
-         */
-        public static final String STATUS_BAR_WEATHER_FONT_STYLE = "status_bar_weather_font_style";
-
-        /**
-         * Status bar weather temperature
-         * 0: Hide the temperature
-         * 1: Display the temperature with scale and image
-         * 2: Display the temperature without scale and with image
-         * 3: Display the temparature with scale and without image
-         * 4: Display the temperature without scale and without image
-         * 5: Display the temperature image
-         * @hide
-         */
-	public static final String STATUS_BAR_SHOW_WEATHER_TEMP = "status_bar_show_weather_temp";
-
-        /**
          * Enable blocking wakelock
          * @hide
          */
@@ -5284,6 +5260,85 @@ public final class Settings {
         public static final String RECENTS_LAYOUT_STYLE = "recents_layout_style";
 
         /**
+         * Control how to handle the display cutout
+         * @hide
+         */
+        public static final String DISPLAY_CUTOUT_MODE = "display_cutout_mode";
+
+        /** @hide */
+        private static final Validator DISPLAY_CUTOUT_MODE_VALIDATOR = new
+                SettingsValidators.InclusiveIntegerRangeValidator(0, 2);
+
+        /**
+         * Control how to handle the display cutout
+         * @hide
+         */
+        public static final String STOCK_STATUSBAR_IN_HIDE = "stock_statusbar_in_hide";
+
+        /** @hide */
+        private static final Validator STOCK_STATUSBAR_IN_HIDE_VALIDATOR =
+                BOOLEAN_VALIDATOR;
+
+        /**
+         * Whether to use the custom status bar header or not
+         * @hide
+         */
+        public static final String OMNI_STATUS_BAR_CUSTOM_HEADER = "status_bar_custom_header";
+
+        private static final Validator OMNI_STATUS_BAR_CUSTOM_HEADER_VALIDATOR =
+                BOOLEAN_VALIDATOR;
+
+        /**
+         * Whether to apply a shadow on top of the header image
+         * value is the alpha value of the shadow image is 0 -> no shadow -> 255 black
+         * @hide
+         */
+        public static final String OMNI_STATUS_BAR_CUSTOM_HEADER_SHADOW =
+                "status_bar_custom_header_shadow";
+
+        private static final Validator OMNI_STATUS_BAR_CUSTOM_HEADER_SHADOW_VALIDATOR =
+                ANY_INTEGER_VALIDATOR;
+
+        /**
+         * header image package to use for daylight header - package name - null if default
+         * @hide
+         */
+        public static final String OMNI_STATUS_BAR_DAYLIGHT_HEADER_PACK =
+                "status_bar_daylight_header_pack";
+
+        private static final Validator OMNI_STATUS_BAR_DAYLIGHT_HEADER_PACK_VALIDATOR =
+                ANY_STRING_VALIDATOR;
+
+        /**
+         * Current active provider - available currently "static" "daylight"
+         * @hide
+         */
+        public static final String OMNI_STATUS_BAR_CUSTOM_HEADER_PROVIDER =
+                "status_bar_custom_header_provider";
+
+        private static final Validator OMNI_STATUS_BAR_CUSTOM_HEADER_PROVIDER_VALIDATOR =
+                ANY_STRING_VALIDATOR;
+
+        /**
+         * Manual override picture to use
+         * @hide
+         */
+        public static final String OMNI_STATUS_BAR_CUSTOM_HEADER_IMAGE =
+                "status_bar_custom_header_image";
+
+        private static final Validator OMNI_STATUS_BAR_CUSTOM_HEADER_IMAGE_VALIDATOR =
+                ANY_STRING_VALIDATOR;
+
+        /**
+         * @hide
+         */
+        public static final String OMNI_STATUS_BAR_FILE_HEADER_IMAGE =
+                "status_bar_file_header_image";
+
+        private static final Validator OMNI_STATUS_BAR_FILE_HEADER_IMAGE_VALIDATOR =
+                ANY_STRING_VALIDATOR;
+
+        /**
          * Settings to backup. This is here so that it's in the same place as the settings
          * keys and easy to update.
          *
@@ -5381,6 +5436,14 @@ public final class Settings {
             ONE_HAND_MODE_ENABLED,
             DOZE_ON_CHARGE,
             RECENTS_COMPONENT,
+            DISPLAY_CUTOUT_MODE,
+            STOCK_STATUSBAR_IN_HIDE,
+            OMNI_STATUS_BAR_CUSTOM_HEADER,
+            OMNI_STATUS_BAR_CUSTOM_HEADER_SHADOW,
+            OMNI_STATUS_BAR_DAYLIGHT_HEADER_PACK,
+            OMNI_STATUS_BAR_CUSTOM_HEADER_PROVIDER,
+            OMNI_STATUS_BAR_CUSTOM_HEADER_IMAGE,
+            OMNI_STATUS_BAR_FILE_HEADER_IMAGE,
         };
 
         /**
@@ -5541,6 +5604,14 @@ public final class Settings {
             PRIVATE_SETTINGS.add(ONE_HAND_MODE_ENABLED);
             PRIVATE_SETTINGS.add(DOZE_ON_CHARGE);
             PRIVATE_SETTINGS.add(RECENTS_COMPONENT);
+            PRIVATE_SETTINGS.add(DISPLAY_CUTOUT_MODE);
+            PRIVATE_SETTINGS.add(STOCK_STATUSBAR_IN_HIDE);
+            PRIVATE_SETTINGS.add(OMNI_STATUS_BAR_CUSTOM_HEADER);
+            PRIVATE_SETTINGS.add(OMNI_STATUS_BAR_CUSTOM_HEADER_SHADOW);
+            PRIVATE_SETTINGS.add(OMNI_STATUS_BAR_DAYLIGHT_HEADER_PACK);
+            PRIVATE_SETTINGS.add(OMNI_STATUS_BAR_CUSTOM_HEADER_PROVIDER);
+            PRIVATE_SETTINGS.add(OMNI_STATUS_BAR_CUSTOM_HEADER_IMAGE);
+            PRIVATE_SETTINGS.add(OMNI_STATUS_BAR_FILE_HEADER_IMAGE);
         }
 
         /**
@@ -5690,6 +5761,20 @@ public final class Settings {
             VALIDATORS.put(ONE_HAND_MODE_ENABLED, ONE_HAND_MODE_ENABLED_VALIDATOR);
             VALIDATORS.put(DOZE_ON_CHARGE, DOZE_ON_CHARGE_VALIDATOR);
             VALIDATORS.put(RECENTS_COMPONENT,RECENTS_COMPONENT_VALIDATOR);
+            VALIDATORS.put(DISPLAY_CUTOUT_MODE, DISPLAY_CUTOUT_MODE_VALIDATOR);
+            VALIDATORS.put(STOCK_STATUSBAR_IN_HIDE, STOCK_STATUSBAR_IN_HIDE_VALIDATOR);
+            VALIDATORS.put(OMNI_STATUS_BAR_CUSTOM_HEADER,
+                    OMNI_STATUS_BAR_CUSTOM_HEADER_VALIDATOR);
+            VALIDATORS.put(OMNI_STATUS_BAR_CUSTOM_HEADER_SHADOW,
+                    OMNI_STATUS_BAR_CUSTOM_HEADER_SHADOW_VALIDATOR);
+            VALIDATORS.put(OMNI_STATUS_BAR_DAYLIGHT_HEADER_PACK,
+                    OMNI_STATUS_BAR_DAYLIGHT_HEADER_PACK_VALIDATOR);
+            VALIDATORS.put(OMNI_STATUS_BAR_CUSTOM_HEADER_PROVIDER,
+                    OMNI_STATUS_BAR_CUSTOM_HEADER_PROVIDER_VALIDATOR);
+            VALIDATORS.put(OMNI_STATUS_BAR_CUSTOM_HEADER_IMAGE,
+                    OMNI_STATUS_BAR_CUSTOM_HEADER_IMAGE_VALIDATOR);
+            VALIDATORS.put(OMNI_STATUS_BAR_FILE_HEADER_IMAGE,
+                    OMNI_STATUS_BAR_FILE_HEADER_IMAGE_VALIDATOR);
         }
 
         /**

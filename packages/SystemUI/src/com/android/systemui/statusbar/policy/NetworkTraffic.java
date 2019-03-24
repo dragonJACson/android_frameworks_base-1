@@ -1,6 +1,10 @@
 package com.android.systemui.statusbar.policy;
 
 import java.util.HashMap;
+import static com.android.systemui.statusbar.StatusBarIconView.STATE_DOT;
+import static com.android.systemui.statusbar.StatusBarIconView.STATE_HIDDEN;
+import static com.android.systemui.statusbar.StatusBarIconView.STATE_ICON;
+
 import java.text.DecimalFormat;
 
 import android.animation.ArgbEvaluator;
@@ -35,6 +39,7 @@ import android.widget.TextView;
 import com.android.settingslib.Utils;
 import com.android.systemui.Dependency;
 import com.android.systemui.R;
+import com.android.systemui.statusbar.StatusIconDisplayable;
 import com.android.systemui.statusbar.policy.DarkIconDispatcher.DarkReceiver;
 import static com.android.systemui.statusbar.policy.DarkIconDispatcher.isInArea;
 
@@ -44,7 +49,9 @@ import static com.android.systemui.statusbar.policy.DarkIconDispatcher.isInArea;
 * to only use it for a single boolean. 32-bits is plenty of room for what we need it to do.
 *
 */
-public class NetworkTraffic extends TextView implements DarkReceiver {
+public class NetworkTraffic extends TextView implements DarkReceiver,StatusIconDisplayable {
+
+    public static final String SLOT = "networktraffic";
 
     private static final int INTERVAL = 1500; //ms
     private static final int KB = 1024;
@@ -65,6 +72,9 @@ public class NetworkTraffic extends TextView implements DarkReceiver {
     private int txtImgPadding;
     private int mAutoHideThreshold;
     private int mTintColor;
+    private int mVisibleState = -1;
+    private boolean mTrafficVisible = false;
+    private boolean mSystemIconVisible = true;
     private int mDarkModeFillColor;
     private int mLightModeFillColor;
     private HashMap<String, IfaceTrafficStats> mActiveIfaceStats;
@@ -103,7 +113,7 @@ public class NetworkTraffic extends TextView implements DarkReceiver {
 
             if (shouldHide(rxData, txData, timeDelta)) {
                 setText("");
-                setVisibility(View.GONE);
+                mTrafficVisible = false;
             } else {
                 // Get information for uplink ready so the line return can be added
                 String output = formatOutput(timeDelta, txData, symbol);
@@ -118,8 +128,9 @@ public class NetworkTraffic extends TextView implements DarkReceiver {
                     setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
                     setText(output);
                 }
-                setVisibility(View.VISIBLE);
+                mTrafficVisible = true;
             }
+            updateVisibility();
 
             // Post delayed message to refresh in ~1000ms
             clearHandlerCallbacks();
@@ -321,6 +332,7 @@ public class NetworkTraffic extends TextView implements DarkReceiver {
     }
 
     private void updateSettings() {
+        updateVisibility();
         if (mIsEnabled) {
             if (mAttached) {
                 lastUpdateTime = SystemClock.elapsedRealtime();
@@ -331,7 +343,6 @@ public class NetworkTraffic extends TextView implements DarkReceiver {
         } else {
             clearHandlerCallbacks();
         }
-        setVisibility(View.GONE);
     }
 
     private void setMode() {
@@ -396,5 +407,59 @@ public class NetworkTraffic extends TextView implements DarkReceiver {
     private static class IfaceTrafficStats {
         public long mTxBytes;
         public long mRxBytes;
+    }
+
+    @Override
+    public String getSlot() {
+        return SLOT;
+    }
+
+    @Override
+    public boolean isIconVisible() {
+        return mIsEnabled;
+    }
+
+    @Override
+    public int getVisibleState() {
+        return mVisibleState;
+    }
+
+    @Override
+    public void setVisibleState(int state) {
+        if (state == mVisibleState) {
+            return;
+        }
+        mVisibleState = state;
+
+        switch (state) {
+            case STATE_ICON:
+                mSystemIconVisible = true;
+                break;
+            case STATE_DOT:
+            case STATE_HIDDEN:
+            default:
+                mSystemIconVisible = false;
+                break;
+        }
+        updateVisibility();
+    }
+
+    private void updateVisibility() {
+        if (mIsEnabled && mTrafficVisible && mSystemIconVisible) {
+            setVisibility(View.VISIBLE);
+        } else {
+            setVisibility(View.GONE);
+        }
+    }
+
+    @Override
+    public void setStaticDrawableColor(int color) {
+        mTintColor = color;
+        setTextColor(mTintColor);
+        updateTrafficDrawable();
+    }
+
+    @Override
+    public void setDecorColor(int color) {
     }
 }
