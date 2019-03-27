@@ -1,10 +1,6 @@
 package com.android.systemui.statusbar.policy;
 
 import java.util.HashMap;
-import static com.android.systemui.statusbar.StatusBarIconView.STATE_DOT;
-import static com.android.systemui.statusbar.StatusBarIconView.STATE_HIDDEN;
-import static com.android.systemui.statusbar.StatusBarIconView.STATE_ICON;
-
 import java.text.DecimalFormat;
 
 import android.animation.ArgbEvaluator;
@@ -17,7 +13,6 @@ import android.content.res.Resources;
 import android.database.ContentObserver;
 import android.graphics.drawable.Drawable;
 import android.graphics.PorterDuff.Mode;
-import android.graphics.Rect;
 import android.net.ConnectivityManager;
 import android.net.LinkProperties;
 import android.net.Network;
@@ -37,9 +32,7 @@ import android.view.View;
 import android.widget.TextView;
 
 import com.android.settingslib.Utils;
-import com.android.systemui.Dependency;
 import com.android.systemui.R;
-import com.android.systemui.statusbar.StatusIconDisplayable;
 import com.android.systemui.statusbar.policy.DarkIconDispatcher.DarkReceiver;
 import static com.android.systemui.statusbar.policy.DarkIconDispatcher.isInArea;
 
@@ -49,7 +42,7 @@ import static com.android.systemui.statusbar.policy.DarkIconDispatcher.isInArea;
 * to only use it for a single boolean. 32-bits is plenty of room for what we need it to do.
 *
 */
-public class NetworkTraffic extends TextView implements DarkReceiver,StatusIconDisplayable {
+public class NetworkTraffic extends TextView {
 
     public static final String SLOT = "networktraffic";
 
@@ -65,16 +58,14 @@ public class NetworkTraffic extends TextView implements DarkReceiver,StatusIconD
         decimalFormat.setMaximumFractionDigits(1);
     }
 
-    private boolean mIsEnabled;
+    protected boolean mIsEnabled;
     private boolean mAttached;
     private long lastUpdateTime;
     private int txtSize;
     private int txtImgPadding;
     private int mAutoHideThreshold;
-    private int mTintColor;
-    private int mVisibleState = -1;
-    private boolean mTrafficVisible = false;
-    private boolean mSystemIconVisible = true;
+    protected int mTintColor;
+    protected boolean mTrafficVisible = false;
     private int mDarkModeFillColor;
     private int mLightModeFillColor;
     private HashMap<String, IfaceTrafficStats> mActiveIfaceStats;
@@ -152,9 +143,10 @@ public class NetworkTraffic extends TextView implements DarkReceiver,StatusIconD
         private boolean shouldHide(long rxData, long txData, long timeDelta) {
             long speedTxKB = (long)(txData / (timeDelta / 1000f)) / KB;
             long speedRxKB = (long)(rxData / (timeDelta / 1000f)) / KB;
+
             return mActiveIfaceStats.size() == 0 ||
-                    (speedRxKB < mAutoHideThreshold &&
-                    speedTxKB < mAutoHideThreshold);
+                (speedRxKB < mAutoHideThreshold &&
+                 speedTxKB < mAutoHideThreshold);
         }
     };
 
@@ -173,7 +165,7 @@ public class NetworkTraffic extends TextView implements DarkReceiver,StatusIconD
         void observe() {
             ContentResolver resolver = mContext.getContentResolver();
             resolver.registerContentObserver(Settings.System
-                    .getUriFor(Settings.System.NETWORK_TRAFFIC_STATE), false,
+                    .getUriFor(getSystemSettingKey()), false,
                     this, UserHandle.USER_ALL);
             resolver.registerContentObserver(Settings.System
                     .getUriFor(Settings.System.NETWORK_TRAFFIC_AUTOHIDE_THRESHOLD), false,
@@ -219,6 +211,7 @@ public class NetworkTraffic extends TextView implements DarkReceiver,StatusIconD
         ContextThemeWrapper mDarkContext = new ContextThemeWrapper(mContext, dualToneDarkTheme);
         mDarkModeFillColor = Utils.getColorAttr(mDarkContext, R.attr.fillColor);
         mLightModeFillColor = Utils.getColorAttr(mLightContext, R.attr.fillColor);
+        setTextColor(mTintColor);
         Handler mHandler = new Handler();
         SettingsObserver settingsObserver = new SettingsObserver(mHandler);
         settingsObserver.observe();
@@ -239,7 +232,6 @@ public class NetworkTraffic extends TextView implements DarkReceiver,StatusIconD
             filter.addAction(Intent.ACTION_SCREEN_ON);
             mContext.registerReceiver(mIntentReceiver, filter, null, getHandler());
         }
-        Dependency.get(DarkIconDispatcher.class).addDarkReceiver(this);
         mIsStatsDirty = true;
         updateSettings();
     }
@@ -251,7 +243,6 @@ public class NetworkTraffic extends TextView implements DarkReceiver,StatusIconD
             mContext.unregisterReceiver(mIntentReceiver);
             mAttached = false;
         }
-        Dependency.get(DarkIconDispatcher.class).removeDarkReceiver(this);
     }
 
     private final BroadcastReceiver mIntentReceiver = new BroadcastReceiver() {
@@ -348,11 +339,15 @@ public class NetworkTraffic extends TextView implements DarkReceiver,StatusIconD
     private void setMode() {
         ContentResolver resolver = mContext.getContentResolver();
         mIsEnabled = Settings.System.getIntForUser(resolver,
-                Settings.System.NETWORK_TRAFFIC_STATE, 1,
+                getSystemSettingKey(), 0,
                 UserHandle.USER_CURRENT) == 1;
         mAutoHideThreshold = Settings.System.getIntForUser(resolver,
                 Settings.System.NETWORK_TRAFFIC_AUTOHIDE_THRESHOLD, 1,
                 UserHandle.USER_CURRENT);
+    }
+
+    protected String getSystemSettingKey() {
+        return Settings.System.NETWORK_TRAFFIC_EXPANDED_STATUS_BAR_STATE;
     }
 
     private void clearHandlerCallbacks() {
@@ -361,7 +356,7 @@ public class NetworkTraffic extends TextView implements DarkReceiver,StatusIconD
         mTrafficHandler.removeMessages(1);
     }
 
-    private void updateTrafficDrawable() {
+    protected void updateTrafficDrawable() {
         int intTrafficDrawable;
         if (mIsEnabled) {
             intTrafficDrawable = R.drawable.stat_sys_network_traffic_updown;
@@ -386,80 +381,16 @@ public class NetworkTraffic extends TextView implements DarkReceiver,StatusIconD
         setCompoundDrawablePadding(txtImgPadding);
     }
 
-    @Override
-    public void onDarkChanged(Rect area, float darkIntensity, int tint) {
-
-        if (!isInArea(area, this)) {
-            return;
-        }
-
-        float intensity = isInArea(area, this) ? darkIntensity : 0;
-        mTintColor = getColorForDarkIntensity(
-                intensity, mLightModeFillColor, mDarkModeFillColor);
-        setTextColor(mTintColor);
-        updateTrafficDrawable();
-    }
-
-    private int getColorForDarkIntensity(float darkIntensity, int lightColor, int darkColor) {
-        return (int) ArgbEvaluator.getInstance().evaluate(darkIntensity, lightColor, darkColor);
-    }
-
     private static class IfaceTrafficStats {
         public long mTxBytes;
         public long mRxBytes;
     }
 
-    @Override
-    public String getSlot() {
-        return SLOT;
-    }
-
-    @Override
-    public boolean isIconVisible() {
-        return mIsEnabled;
-    }
-
-    @Override
-    public int getVisibleState() {
-        return mVisibleState;
-    }
-
-    @Override
-    public void setVisibleState(int state) {
-        if (state == mVisibleState) {
-            return;
-        }
-        mVisibleState = state;
-
-        switch (state) {
-            case STATE_ICON:
-                mSystemIconVisible = true;
-                break;
-            case STATE_DOT:
-            case STATE_HIDDEN:
-            default:
-                mSystemIconVisible = false;
-                break;
-        }
-        updateVisibility();
-    }
-
-    private void updateVisibility() {
-        if (mIsEnabled && mTrafficVisible && mSystemIconVisible) {
+    protected void updateVisibility() {
+        if (mIsEnabled && mTrafficVisible) {
             setVisibility(View.VISIBLE);
         } else {
             setVisibility(View.GONE);
         }
-    }
-
-    @Override
-    public void setStaticDrawableColor(int color) {
-        mTintColor = color;
-        setTextColor(mTintColor);
-        updateTrafficDrawable();
-    }
-
-    @Override
-    public void setDecorColor(int color) {
     }
 }
