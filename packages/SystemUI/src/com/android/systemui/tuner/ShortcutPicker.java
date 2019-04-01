@@ -29,7 +29,6 @@ import android.support.v7.preference.PreferenceCategory;
 import android.support.v7.preference.PreferenceScreen;
 import android.support.v7.preference.PreferenceViewHolder;
 
-import com.android.systemui.assist.AssistManager;
 import com.android.systemui.Dependency;
 import com.android.systemui.R;
 import com.android.systemui.tuner.ShortcutParser.Shortcut;
@@ -42,10 +41,8 @@ public class ShortcutPicker extends PreferenceFragment implements Tunable {
 
     private final ArrayList<SelectablePreference> mSelectablePreferences = new ArrayList<>();
     private String mKey;
-    private SelectablePreference mDefault;
+    private SelectablePreference mNonePreference;
     private TunerService mTunerService;
-
-    private AssistManager mAssistManager;
 
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
@@ -55,28 +52,11 @@ public class ShortcutPicker extends PreferenceFragment implements Tunable {
         PreferenceCategory otherApps = new PreferenceCategory(context);
         otherApps.setTitle(R.string.tuner_other_apps);
 
-        mAssistManager = Dependency.get(AssistManager.class);
-
-        mDefault = new SelectablePreference(context);
-        mSelectablePreferences.add(mDefault);
-        String mDefaultTitle;
-
-        if (LOCKSCREEN_LEFT_BUTTON.equals(getArguments().getString(ARG_PREFERENCE_ROOT))) {
-            if (mAssistManager.canVoiceAssistBeLaunchedFromKeyguard()) {
-                mDefaultTitle = getString(R.string.voice_assist_label) + getString(R.string.nav_bar_default);
-                mDefault.setTitle(mDefaultTitle);
-                mDefault.setIcon(R.drawable.ic_mic);
-            } else {
-                mDefaultTitle = getString(R.string.phone_label) + getString(R.string.nav_bar_default);
-                mDefault.setTitle(mDefaultTitle);
-                mDefault.setIcon(R.drawable.ic_phone);
-            }
-        } else {
-            mDefaultTitle = getString(R.string.camera_label) + getString(R.string.nav_bar_default);
-            mDefault.setTitle(mDefaultTitle);
-            mDefault.setIcon(R.drawable.ic_camera);
-        }
-        screen.addPreference(mDefault);
+        mNonePreference = new SelectablePreference(context);
+        mSelectablePreferences.add(mNonePreference);
+        mNonePreference.setTitle(R.string.lockscreen_none);
+        mNonePreference.setIcon(R.drawable.ic_remove_circle);
+        screen.addPreference(mNonePreference);
 
         LauncherApps apps = getContext().getSystemService(LauncherApps.class);
         List<LauncherActivityInfo> activities = apps.getActivityList(null,

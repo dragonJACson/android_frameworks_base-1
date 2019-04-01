@@ -48,7 +48,6 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import com.android.systemui.assist.AssistManager;
 import com.android.systemui.Dependency;
 import com.android.systemui.R;
 import com.android.systemui.plugins.IntentButtonProvider.IntentButton;
@@ -65,8 +64,6 @@ import java.util.function.Consumer;
 
 public class LockscreenFragment extends PreferenceFragment {
 
-    private static final String TAG = "LockscreenFragment";
-
     private static final String KEY_LEFT = "left";
     private static final String KEY_RIGHT = "right";
     private static final String KEY_CUSTOMIZE = "customize";
@@ -81,14 +78,9 @@ public class LockscreenFragment extends PreferenceFragment {
     private TunerService mTunerService;
     private Handler mHandler;
 
-    private AssistManager mAssistManager;
-    private boolean mcanVoiceAssist;
-
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         mTunerService = Dependency.get(TunerService.class);
-        mAssistManager = Dependency.get(AssistManager.class);
-        mcanVoiceAssist = mAssistManager.canVoiceAssistBeLaunchedFromKeyguard();
         mHandler = new Handler();
         addPreferencesFromResource(R.xml.lockscreen_settings);
         setupGroup(LOCKSCREEN_LEFT_BUTTON, LOCKSCREEN_LEFT_UNLOCK);
@@ -135,12 +127,7 @@ public class LockscreenFragment extends PreferenceFragment {
 
     private void setSummary(Preference shortcut, String value) {
         if (value == null) {
-            String summary = getString(R.string.camera_label);
-            if (shortcut.getKey().equals(LOCKSCREEN_LEFT_BUTTON))
-                summary = mcanVoiceAssist ? getString(R.string.voice_assist_label) : getString(R.string.phone_label);
-
-            summary += getString(R.string.nav_bar_default);
-            shortcut.setSummary(summary);
+            shortcut.setSummary(R.string.lockscreen_none);
             return;
         }
         if (value.contains("::")) {
@@ -151,12 +138,7 @@ public class LockscreenFragment extends PreferenceFragment {
             shortcut.setSummary(info != null ? info.loadLabel(getContext().getPackageManager())
                     : null);
         } else {
-            String summary = getString(R.string.camera_label);
-            if (shortcut.getKey().equals(LOCKSCREEN_LEFT_BUTTON))
-                summary = mcanVoiceAssist ? getString(R.string.voice_assist_label) : getString(R.string.phone_label);
-
-            summary += getString(R.string.nav_bar_default);
-            shortcut.setSummary(summary);
+            shortcut.setSummary(R.string.lockscreen_none);
         }
     }
 
