@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.android.keyguard;
 
 import android.animation.Animator;
@@ -38,76 +39,56 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Slog;
 import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.View;
 import android.widget.GridLayout;
 import android.widget.RelativeLayout;
+import android.widget.LinearLayout;
 import android.widget.TextClock;
 import android.widget.TextView;
-import android.graphics.Typeface;
 
 import com.android.internal.widget.LockPatternUtils;
 import com.android.internal.widget.ViewClippingUtil;
+import com.android.keyguard.clocks.CustomAnalogClock;
+import com.android.keyguard.clocks.CustomTextClock;
 import com.android.systemui.Dependency;
 import com.android.systemui.Interpolators;
 import com.android.systemui.statusbar.policy.ConfigurationController;
 import com.android.systemui.util.wakelock.KeepAwakeAnimationListener;
-import android.provider.Settings;
-import com.android.systemui.omni.CurrentWeatherView;
 
 import com.google.android.collect.Sets;
-
+import java.lang.Math;
 import java.util.Locale;
 
-public class KeyguardStatusView extends GridLayout implements
-    ConfigurationController.ConfigurationListener, View.OnLayoutChangeListener {
+import android.content.ContentResolver;
+import com.android.systemui.omni.CurrentWeatherView;
+import android.provider.Settings;
 
+import android.text.Html;
+
+public class KeyguardStatusView extends GridLayout implements
+        ConfigurationController.ConfigurationListener, View.OnLayoutChangeListener {
     private static final boolean DEBUG = KeyguardConstants.DEBUG;
     private static final String TAG = "KeyguardStatusView";
     private static final int MARQUEE_DELAY_MS = 2000;
 
-    private static final String FONT_SS_NORMAL = "sans-serif";
-    private static final String FONT_SS_LIGTH = "sans-serif-light";
-    private static final String FONT_SS_MEDIUM = "sans-serif-medium";
-    private static final String FONT_SS_BLACK = "sans-serif-black";
-    private static final String FONT_SS_THIN = "sans-serif-thin";
-    private static final String FONT_SS_CONDENSED = "sans-serif-condensed";
-    private static final String FONT_SS_CONDENSED_LIGTH = "sans-serif-condensed-light";
-
-    private static final Typeface[] LOCK_FONTS = new Typeface[] {
-        Typeface.create(FONT_SS_NORMAL, Typeface.NORMAL),
-        Typeface.create(FONT_SS_NORMAL, Typeface.ITALIC),
-        Typeface.create(FONT_SS_NORMAL, Typeface.BOLD),
-        Typeface.create(FONT_SS_NORMAL, Typeface.BOLD_ITALIC),
-        Typeface.create(FONT_SS_LIGTH, Typeface.NORMAL),
-        Typeface.create(FONT_SS_LIGTH, Typeface.ITALIC),
-        Typeface.create(FONT_SS_THIN, Typeface.NORMAL),
-        Typeface.create(FONT_SS_THIN, Typeface.ITALIC),
-        Typeface.create(FONT_SS_CONDENSED, Typeface.NORMAL),
-        Typeface.create(FONT_SS_CONDENSED, Typeface.ITALIC),
-        Typeface.create(FONT_SS_CONDENSED_LIGTH, Typeface.NORMAL),
-        Typeface.create(FONT_SS_CONDENSED_LIGTH, Typeface.ITALIC),
-        Typeface.create(FONT_SS_CONDENSED, Typeface.BOLD),
-        Typeface.create(FONT_SS_CONDENSED, Typeface.BOLD_ITALIC),
-        Typeface.create(FONT_SS_MEDIUM, Typeface.NORMAL),
-        Typeface.create(FONT_SS_MEDIUM, Typeface.ITALIC),
-        Typeface.create(FONT_SS_BLACK, Typeface.NORMAL),
-        Typeface.create(FONT_SS_BLACK, Typeface.ITALIC)
-    };
+	private static final String FONT_FAMILY = "sans-serif-light";
 
     private final LockPatternUtils mLockPatternUtils;
     private final IActivityManager mIActivityManager;
     private final float mSmallClockScale;
 
     private TextView mLogoutView;
+    private CustomAnalogClock mCustomClockView;
+    private LinearLayout mTextClock;
     private TextClock mClockView;
     private View mClockSeparator;
     private TextView mOwnerInfo;
     private KeyguardSliceView mKeyguardSlice;
-    private View mKeyguardSliceView;
     private Runnable mPendingMarqueeStart;
     private Handler mHandler;
 
-    private ArraySet < View > mVisibleInDoze;
+    private ArraySet<View> mVisibleInDoze;
     private boolean mPulsing;
     private boolean mWasPulsing;
     private float mDarkAmount = 0;
@@ -116,6 +97,11 @@ public class KeyguardStatusView extends GridLayout implements
     private int mLastLayoutHeight;
     private CurrentWeatherView mWeatherView;
     private boolean mShowWeather;
+
+    private boolean mShowClock;
+    private int mClockSelection;
+
+    private boolean mWasLatestViewSmall;
 
     private KeyguardUpdateMonitorCallback mInfoCallback = new KeyguardUpdateMonitorCallback() {
 
@@ -131,10 +117,6 @@ public class KeyguardStatusView extends GridLayout implements
                 refreshTime();
                 updateOwnerInfo();
                 updateLogoutView();
-                refreshLockFont();
-                refreshLockDateFont();
-                refreshclocksize();
-                refreshdatesize();
                 updateSettings();
             }
         }
@@ -154,10 +136,6 @@ public class KeyguardStatusView extends GridLayout implements
             refreshFormat();
             updateOwnerInfo();
             updateLogoutView();
-            refreshLockFont();
-            refreshLockDateFont();
-            refreshclocksize();
-            refreshdatesize();
             updateSettings();
         }
 
@@ -180,8 +158,8 @@ public class KeyguardStatusView extends GridLayout implements
         mIActivityManager = ActivityManager.getService();
         mLockPatternUtils = new LockPatternUtils(getContext());
         mHandler = new Handler(Looper.myLooper());
-        mSmallClockScale = getResources().getDimension(R.dimen.widget_small_font_size) /
-            getResources().getDimension(R.dimen.widget_big_font_size);
+        mSmallClockScale = getResources().getDimension(R.dimen.widget_small_font_size)
+                / getResources().getDimension(R.dimen.widget_big_font_size);
         onDensityOrFontScaleChanged();
     }
 
@@ -219,9 +197,10 @@ public class KeyguardStatusView extends GridLayout implements
 
         mClockView = findViewById(R.id.clock_view);
         mClockView.setShowCurrentUserTime(true);
+        mCustomClockView = findViewById(R.id.custom_clock_view);
+        mTextClock = findViewById(R.id.custom_textclock_view);
         mOwnerInfo = findViewById(R.id.owner_info);
         mKeyguardSlice = findViewById(R.id.keyguard_status_area);
-        mKeyguardSliceView = findViewById(R.id.keyguard_status_area);
         mClockSeparator = findViewById(R.id.clock_separator);
         mTextColor = mClockView.getCurrentTextColor();
 
@@ -237,6 +216,9 @@ public class KeyguardStatusView extends GridLayout implements
         if (mKeyguardSlice != null) {
             mVisibleInDoze.add(mKeyguardSlice);
         }
+        if (mCustomClockView != null) {
+            mVisibleInDoze.add(mCustomClockView);
+        }
 
         int clockStroke = getResources().getDimensionPixelSize(R.dimen.widget_small_font_stroke);
         mClockView.getPaint().setStrokeWidth(clockStroke);
@@ -245,16 +227,14 @@ public class KeyguardStatusView extends GridLayout implements
         mKeyguardSlice.setContentChangeListener(this::onSliceContentChanged);
         onSliceContentChanged();
 
+        updateSettings();
+
         boolean shouldMarquee = KeyguardUpdateMonitor.getInstance(mContext).isDeviceInteractive();
         setEnableMarquee(shouldMarquee);
         refreshFormat();
         updateOwnerInfo();
         updateLogoutView();
         updateDark();
-        refreshLockFont();
-        refreshLockDateFont();
-        refreshclocksize();
-        refreshdatesize();
         updateSettings();
     }
 
@@ -263,12 +243,30 @@ public class KeyguardStatusView extends GridLayout implements
      */
     private void onSliceContentChanged() {
         boolean smallClock = mKeyguardSlice.hasHeader() || mPulsing;
+        prepareSmallView(smallClock);
         float clockScale = smallClock ? mSmallClockScale : 1;
+		Typeface tf = Typeface.create(FONT_FAMILY, Typeface.NORMAL);
         RelativeLayout.LayoutParams layoutParams =
-            (RelativeLayout.LayoutParams) mClockView.getLayoutParams();
+                (RelativeLayout.LayoutParams) mClockView.getLayoutParams();
         int height = mClockView.getHeight();
-        layoutParams.bottomMargin = (int) - (height - (clockScale * height));
+        layoutParams.bottomMargin = (int) -(height - (clockScale * height));
         mClockView.setLayoutParams(layoutParams);
+		mClockView.setTypeface(tf);
+
+        // Custom analog clock
+        RelativeLayout.LayoutParams customlayoutParams =
+                (RelativeLayout.LayoutParams) mCustomClockView.getLayoutParams();
+        customlayoutParams.bottomMargin = getResources().getDimensionPixelSize(
+                R.dimen.keyguard_security_view_top_margin);
+        mCustomClockView.setLayoutParams(customlayoutParams);
+
+        //Custom Text clock
+        RelativeLayout.LayoutParams textlayoutParams =
+                (RelativeLayout.LayoutParams) mTextClock.getLayoutParams();
+        textlayoutParams.bottomMargin = getResources().getDimensionPixelSize(
+                R.dimen.keyguard_security_view_top_margin);
+        mTextClock.setLayoutParams(textlayoutParams);
+
         layoutParams = (RelativeLayout.LayoutParams) mClockSeparator.getLayoutParams();
         layoutParams.topMargin = smallClock ? (int) mWidgetPadding : 0;
         layoutParams.bottomMargin = layoutParams.topMargin;
@@ -280,16 +278,17 @@ public class KeyguardStatusView extends GridLayout implements
      */
     @Override
     public void onLayoutChange(View view, int left, int top, int right, int bottom,
-        int oldLeft, int oldTop, int oldRight, int oldBottom) {
+            int oldLeft, int oldTop, int oldRight, int oldBottom) {
         int heightOffset = mPulsing || mWasPulsing ? 0 : getHeight() - mLastLayoutHeight;
         boolean hasHeader = mKeyguardSlice.hasHeader();
         boolean smallClock = hasHeader || mPulsing;
+        prepareSmallView(smallClock);
         long duration = KeyguardSliceView.DEFAULT_ANIM_DURATION;
         long delay = smallClock || mWasPulsing ? 0 : duration / 4;
         mWasPulsing = false;
 
-        boolean shouldAnimate = mKeyguardSlice.getLayoutTransition() != null &&
-            mKeyguardSlice.getLayoutTransition().isRunning();
+        boolean shouldAnimate = mKeyguardSlice.getLayoutTransition() != null
+                && mKeyguardSlice.getLayoutTransition().isRunning();
         if (view == mClockView) {
             float clockScale = smallClock ? mSmallClockScale : 1;
             Paint.Style style = smallClock ? Paint.Style.FILL_AND_STROKE : Paint.Style.FILL;
@@ -297,18 +296,18 @@ public class KeyguardStatusView extends GridLayout implements
             if (shouldAnimate) {
                 mClockView.setY(oldTop + heightOffset);
                 mClockView.animate()
-                    .setInterpolator(Interpolators.FAST_OUT_SLOW_IN)
-                    .setDuration(duration)
-                    .setListener(new ClipChildrenAnimationListener())
-                    .setStartDelay(delay)
-                    .y(top)
-                    .scaleX(clockScale)
-                    .scaleY(clockScale)
-                    .withEndAction(() -> {
-                        mClockView.getPaint().setStyle(style);
-                        mClockView.invalidate();
-                    })
-                    .start();
+                        .setInterpolator(Interpolators.FAST_OUT_SLOW_IN)
+                        .setDuration(duration)
+                        .setListener(new ClipChildrenAnimationListener())
+                        .setStartDelay(delay)
+                        .y(top)
+                        .scaleX(clockScale)
+                        .scaleY(clockScale)
+                        .withEndAction(() -> {
+                            mClockView.getPaint().setStyle(style);
+                            mClockView.invalidate();
+                        })
+                        .start();
             } else {
                 mClockView.setY(top);
                 mClockView.setScaleX(clockScale);
@@ -324,13 +323,13 @@ public class KeyguardStatusView extends GridLayout implements
                 boolean isAwake = mDarkAmount != 0;
                 mClockSeparator.setY(oldTop + heightOffset);
                 mClockSeparator.animate()
-                    .setInterpolator(Interpolators.FAST_OUT_SLOW_IN)
-                    .setDuration(duration)
-                    .setListener(isAwake ? null : new KeepAwakeAnimationListener(getContext()))
-                    .setStartDelay(delay)
-                    .y(top)
-                    .alpha(alpha)
-                    .start();
+                        .setInterpolator(Interpolators.FAST_OUT_SLOW_IN)
+                        .setDuration(duration)
+                        .setListener(isAwake ? null : new KeepAwakeAnimationListener(getContext()))
+                        .setStartDelay(delay)
+                        .y(top)
+                        .alpha(alpha)
+                        .start();
             } else {
                 mClockSeparator.setY(top);
                 mClockSeparator.setAlpha(alpha);
@@ -351,12 +350,14 @@ public class KeyguardStatusView extends GridLayout implements
     public void onDensityOrFontScaleChanged() {
         mWidgetPadding = getResources().getDimension(R.dimen.widget_vertical_padding);
         if (mClockView != null) {
+            mClockView.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                    getResources().getDimensionPixelSize(R.dimen.widget_big_font_size));
             mClockView.getPaint().setStrokeWidth(
-                getResources().getDimensionPixelSize(R.dimen.widget_small_font_stroke));
+                    getResources().getDimensionPixelSize(R.dimen.widget_small_font_stroke));
         }
         if (mOwnerInfo != null) {
             mOwnerInfo.setTextSize(TypedValue.COMPLEX_UNIT_PX,
-                getResources().getDimensionPixelSize(R.dimen.widget_label_font_size));
+                    getResources().getDimensionPixelSize(R.dimen.widget_label_font_size));
         }
         if (mWeatherView != null) {
             mWeatherView.onDensityOrFontScaleChanged();
@@ -370,26 +371,32 @@ public class KeyguardStatusView extends GridLayout implements
 
     private void refreshTime() {
         mClockView.refresh();
-    }
 
-    private int getLockClockFont() {
-        return Settings.System.getInt(mContext.getContentResolver(),
-            Settings.System.LOCK_CLOCK_FONTS, 0);
-    }
-
-    private int getLockDateFont() {
-        return Settings.System.getInt(mContext.getContentResolver(),
-            Settings.System.LOCK_DATE_FONTS, 0);
-    }
-
-    private int getLockClockSize() {
-        return Settings.System.getInt(mContext.getContentResolver(),
-            Settings.System.LOCKCLOCK_FONT_SIZE, 64);
-    }
-
-    private int getLockDateSize() {
-        return Settings.System.getInt(mContext.getContentResolver(),
-            Settings.System.LOCKDATE_FONT_SIZE, 16);
+        if (mClockSelection == 0 || mWasLatestViewSmall) {
+            mClockView.setFormat12Hour(Patterns.clockView12);
+            mClockView.setFormat24Hour(Patterns.clockView24);
+        } else if (mClockSelection == 1) {
+            mClockView.setFormat12Hour(Html.fromHtml("<strong>h</strong>mm"));
+            mClockView.setFormat24Hour(Html.fromHtml("<strong>kk</strong>mm"));
+        } else if (mClockSelection == 4) {
+            mClockView.setFormat12Hour(Html.fromHtml("<strong>hh</strong><br>mm"));
+            mClockView.setFormat24Hour(Html.fromHtml("<strong>kk</strong><br>mm"));
+        } else if (mClockSelection == 5) {
+            mClockView.setFormat12Hour(Html.fromHtml("hh<br><font color=" + getResources().getColor(R.color.sammy_minutes_accent) + ">mm</font>"));
+            mClockView.setFormat24Hour(Html.fromHtml("kk<br><font color=" + getResources().getColor(R.color.sammy_minutes_accent) + ">mm</font>"));
+        } else if (mClockSelection == 6) {
+            mClockView.setFormat12Hour(Html.fromHtml("<font color='#454545'>hh</font><br><font color=" + getResources().getColor(R.color.sammy_minutes_accent) + ">mm</font>"));
+            mClockView.setFormat24Hour(Html.fromHtml("<font color='#454545'>kk</font><br><font color=" + getResources().getColor(R.color.sammy_minutes_accent) + ">mm</font>"));
+        } else if (mClockSelection == 7) {
+            mClockView.setFormat12Hour(Html.fromHtml("<font color=" + getResources().getColor(R.color.clock_gradient_full_clock_text_color) + ">hh mm</font>"));
+            mClockView.setFormat24Hour(Html.fromHtml("<font color=" + getResources().getColor(R.color.clock_gradient_full_clock_text_color) + ">kk mm</font>"));
+        } else if (mClockSelection == 8) {
+            mClockView.setFormat12Hour(Html.fromHtml("<font color=" + getResources().getColor(R.color.clock_gradient_full_clock_text_color) + ">hh\nmm</font>"));
+            mClockView.setFormat24Hour(Html.fromHtml("<font color=" + getResources().getColor(R.color.clock_gradient_full_clock_text_color) + ">kk\nmm</font>"));
+        } else {
+            mClockView.setFormat12Hour("hh\nmm");
+            mClockView.setFormat24Hour("kk\nmm");
+        }
     }
 
     private void refreshFormat() {
@@ -416,7 +423,7 @@ public class KeyguardStatusView extends GridLayout implements
         mLogoutView.setVisibility(shouldShowLogout() ? VISIBLE : GONE);
         // Logout button will stay in language of user 0 if we don't set that manually.
         mLogoutView.setText(mContext.getResources().getString(
-            com.android.internal.R.string.global_action_logout));
+                com.android.internal.R.string.global_action_logout));
     }
 
     private void updateOwnerInfo() {
@@ -425,7 +432,7 @@ public class KeyguardStatusView extends GridLayout implements
         if (info == null) {
             // Use the current user owner information if enabled.
             final boolean ownerInfoEnabled = mLockPatternUtils.isOwnerInfoEnabled(
-                KeyguardUpdateMonitor.getCurrentUser());
+                    KeyguardUpdateMonitor.getCurrentUser());
             if (ownerInfoEnabled) {
                 info = mLockPatternUtils.getOwnerInfo(KeyguardUpdateMonitor.getCurrentUser());
             }
@@ -457,26 +464,225 @@ public class KeyguardStatusView extends GridLayout implements
         return false;
     }
 
-    private void refreshLockFont() {
-        int lockClockFont = (UserHandle.getCallingUserId() == UserHandle.USER_OWNER) ? getLockClockFont() : 0;
-        mClockView.setTypeface(LOCK_FONTS[lockClockFont]);
+    private void updateVisibilities() {
+        switch (mClockSelection) {
+            case 0: // default digital
+            default:
+                mClockView.setVisibility(mDarkAmount != 1 ? (mShowClock ? View.VISIBLE :
+                       View.GONE) : View.VISIBLE);
+                mClockView.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                getResources().getDimensionPixelSize(R.dimen.widget_big_font_size));
+                mClockView.setLineSpacing(0,1f);
+                mCustomClockView.setVisibility(View.GONE);
+		        mClockView.setBackgroundResource(0);
+                mTextClock.setVisibility(View.GONE);
+                break;
+            case 1: // digital (bold)
+                mClockView.setVisibility(mDarkAmount != 1 ? (mShowClock ? View.VISIBLE :
+                       View.GONE) : View.VISIBLE);
+                mClockView.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                getResources().getDimensionPixelSize(R.dimen.widget_big_font_size));
+                mClockView.setLineSpacing(0,1f);
+                mCustomClockView.setVisibility(View.GONE);
+		        mClockView.setBackgroundResource(0);
+                mTextClock.setVisibility(View.GONE);
+                break;
+            case 2: // custom analog
+                mCustomClockView.setVisibility(mDarkAmount != 1 ? (mShowClock ? View.VISIBLE :
+                       View.GONE) : View.VISIBLE);
+                mClockView.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                getResources().getDimensionPixelSize(R.dimen.widget_big_font_size));
+                mClockView.setLineSpacing(0,1f);
+                mClockView.setVisibility(View.GONE);
+		        mClockView.setBackgroundResource(0);
+                mTextClock.setVisibility(View.GONE);
+                break;
+            case 3: // sammy
+                mClockView.setVisibility(mDarkAmount != 1 ? (mShowClock ? View.VISIBLE :
+                       View.GONE) : View.VISIBLE);
+                mClockView.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                getResources().getDimensionPixelSize(R.dimen.widget_big_font_size));
+                mClockView.setLineSpacing(0,1f);
+                mCustomClockView.setVisibility(View.GONE);
+		        mClockView.setBackgroundResource(0);
+                mTextClock.setVisibility(View.GONE);
+                break;
+            case 4: // sammy (bold)
+                mClockView.setVisibility(mDarkAmount != 1 ? (mShowClock ? View.VISIBLE :
+                       View.GONE) : View.VISIBLE);
+                mClockView.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                getResources().getDimensionPixelSize(R.dimen.widget_big_font_size));
+                mClockView.setLineSpacing(0,1f);
+                mCustomClockView.setVisibility(View.GONE);
+                mClockView.setBackgroundResource(0);
+                mTextClock.setVisibility(View.GONE);
+                break;
+            case 5: // sammy accent
+                mClockView.setVisibility(mDarkAmount != 1 ? (mShowClock ? View.VISIBLE :
+                       View.GONE) : View.VISIBLE);
+                mClockView.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                getResources().getDimensionPixelSize(R.dimen.widget_sammy_accent_font_size));
+                mClockView.setLineSpacing(0,1f);
+                mCustomClockView.setVisibility(View.GONE);
+		        mClockView.setBackgroundResource(0);
+                mTextClock.setVisibility(View.GONE);
+                break;
+            case 6: // sammy accent
+                mClockView.setVisibility(mDarkAmount != 1 ? (mShowClock ? View.VISIBLE :
+                       View.GONE) : View.VISIBLE);
+                mClockView.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                getResources().getDimensionPixelSize(R.dimen.widget_sammy_accent_font_size));
+                mClockView.setLineSpacing(0,1f);
+                mCustomClockView.setVisibility(View.GONE);
+                mTextClock.setVisibility(View.GONE);
+                break;
+            case 7: // Gradient with dark clock
+                mClockView.setVisibility(mDarkAmount != 1 ? (mShowClock ? View.VISIBLE :
+                       View.GONE) : View.VISIBLE);
+                mClockView.setBackground(getResources().getDrawable(R.drawable.clock_bootleg_gradient_shadow));
+                mClockView.getLayoutParams().width = getResources().getDimensionPixelSize(R.dimen.widget_clock_shishu_size);
+                mClockView.getLayoutParams().height = getResources().getDimensionPixelSize(R.dimen.widget_clock_shishu_size);
+                mClockView.setLineSpacing(0,1f);
+                mClockView.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                getResources().getDimensionPixelSize(R.dimen.widget_clock_shishu_nerves_font_size));
+                mClockView.setPadding(0,20,0,20);
+                mCustomClockView.setVisibility(View.GONE);
+                mKeyguardSlice.setPadding(0,(int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_PX,
+        getResources().getDimensionPixelSize(R.dimen.widget_clock_shishu_date_padding), 
+        getResources().getDisplayMetrics()),0,0
+                );
+                mTextClock.setVisibility(View.GONE);
+                break;
+            case 8: // Monochrome gradient, like the qs tile
+                mClockView.setVisibility(mDarkAmount != 1 ? (mShowClock ? View.VISIBLE :
+                       View.GONE) : View.VISIBLE);
+                mClockView.setBackground(getResources().getDrawable(R.drawable.clock_bootleg_qsgradient));
+                mClockView.getLayoutParams().width = getResources().getDimensionPixelSize(R.dimen.widget_clock_shishu_size);
+                mClockView.getLayoutParams().height = getResources().getDimensionPixelSize(R.dimen.widget_clock_shishu_size);
+                mClockView.setLineSpacing(0,1f);
+                mClockView.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                getResources().getDimensionPixelSize(R.dimen.widget_clock_shishu_nerves_font_size));
+                mClockView.setPadding(0,20,0,20);
+                mCustomClockView.setVisibility(View.GONE);
+                mKeyguardSlice.setPadding(0,(int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_PX,
+        getResources().getDimensionPixelSize(R.dimen.widget_clock_shishu_date_padding), 
+        getResources().getDisplayMetrics()),0,0
+                );
+                mTextClock.setVisibility(View.GONE);
+                break;
+            case 9: // custom text clock
+                mTextClock.setVisibility(mDarkAmount != 1 ? (mShowClock ? View.VISIBLE :
+                       View.GONE) : View.VISIBLE);
+                mClockView.setVisibility(View.GONE);
+                mCustomClockView.setVisibility(View.GONE);
+        }
     }
 
-    private void refreshLockDateFont() {
-        int lockDateFont = (UserHandle.getCallingUserId() == UserHandle.USER_OWNER) ? getLockDateFont() : 0;
-        mKeyguardSlice.setViewsTypeface(LOCK_FONTS[lockDateFont]);
+    private void updateSettings() {
+        final ContentResolver resolver = getContext().getContentResolver();
+
+        mShowClock = Settings.System.getIntForUser(resolver,
+                Settings.System.LOCKSCREEN_CLOCK, 1, UserHandle.USER_CURRENT) == 1;
+        mClockSelection = Settings.System.getIntForUser(resolver,
+                Settings.System.LOCKSCREEN_CLOCK_SELECTION, 0, UserHandle.USER_CURRENT);
+
+        setStyle();
+
+        final Resources res = getContext().getResources();
+        mShowWeather = Settings.System.getIntForUser(resolver,
+                Settings.System.OMNI_LOCKSCREEN_WEATHER_ENABLED, 0,
+                UserHandle.USER_CURRENT) == 1;
+
+        if (mWeatherView != null) {
+            if (mShowWeather) {
+                mWeatherView.setVisibility(View.VISIBLE);
+                mWeatherView.enableUpdates();
+            }
+            if (!mShowWeather) {
+                mWeatherView.setVisibility(View.GONE);
+                mWeatherView.disableUpdates();
+            }
+	}
+
     }
 
-    public void refreshclocksize() {
-        int lockClockSize = (UserHandle.getCallingUserId() == UserHandle.USER_OWNER) ? getLockClockSize() : 64;
-        mClockView.setTextSize(TypedValue.COMPLEX_UNIT_PX,
-            TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, (float) lockClockSize, getContext().getResources().getDisplayMetrics()));
+    private void setStyle() {
+        RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams)
+                mKeyguardSlice.getLayoutParams();
+        switch (mClockSelection) {
+            case 0: // default digital
+            default:
+                params.addRule(RelativeLayout.BELOW, R.id.clock_view);
+                mClockView.setSingleLine(true);
+                mClockView.setGravity(Gravity.CENTER);
+                break;
+            case 1: // digital (bold)
+                params.addRule(RelativeLayout.BELOW, R.id.clock_view);
+                mClockView.setSingleLine(true);
+                mClockView.setGravity(Gravity.CENTER);
+                break;
+            case 2: // custom analog
+                params.addRule(RelativeLayout.BELOW, R.id.custom_clock_view);
+                break;
+            case 3: // sammy
+                params.addRule(RelativeLayout.BELOW, R.id.clock_view);
+                mClockView.setSingleLine(false);
+                mClockView.setGravity(Gravity.CENTER);
+                break;
+            case 4: // sammy (bold)
+                params.addRule(RelativeLayout.BELOW, R.id.clock_view);
+                mClockView.setSingleLine(false);
+                mClockView.setGravity(Gravity.CENTER);
+                break;
+            case 5: // sammy accent
+                params.addRule(RelativeLayout.BELOW, R.id.clock_view);
+                mClockView.setSingleLine(false);
+                mClockView.setGravity(Gravity.CENTER);
+                break;
+            case 6: // sammy accent
+                params.addRule(RelativeLayout.BELOW, R.id.clock_view);
+                mClockView.setSingleLine(false);
+                mClockView.setGravity(Gravity.CENTER);
+                break;
+            case 7: // Gradient with dark clock
+                params.addRule(RelativeLayout.BELOW, R.id.clock_view);
+                mClockView.setSingleLine(false);
+                mClockView.setGravity(Gravity.CENTER);
+                break;
+            case 8: // Monochrome gradient, like the qs tile
+                params.addRule(RelativeLayout.BELOW, R.id.clock_view);
+                mClockView.setSingleLine(false);
+                mClockView.setGravity(Gravity.CENTER);
+                break;
+            case 9: // custom text clock
+                params.addRule(RelativeLayout.BELOW, R.id.custom_textclock_view);
+                break;
+        }
     }
 
-    public void refreshdatesize() {
-        int lockDateSize = (UserHandle.getCallingUserId() == UserHandle.USER_OWNER) ? getLockDateSize() : 16;
-        mKeyguardSlice.setViewsTextSize(TypedValue.COMPLEX_UNIT_PX,
-            TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, (float) lockDateSize, getContext().getResources().getDisplayMetrics()));
+    private void prepareSmallView(boolean small) {
+        if (mWasLatestViewSmall == small) return;
+        mWasLatestViewSmall = small;
+        if (small) {
+            RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams)
+                    mKeyguardSlice.getLayoutParams();
+            params.addRule(RelativeLayout.BELOW, R.id.clock_view);
+            mClockView.setSingleLine(true);
+            mClockView.setGravity(Gravity.CENTER);
+            mClockView.setVisibility(mDarkAmount != 1 ? (mShowClock ? View.VISIBLE :
+                    View.GONE) : View.VISIBLE);
+            mCustomClockView.setVisibility(View.GONE);
+            mTextClock.setVisibility(View.GONE);
+        } else {
+            setStyle();
+            refreshTime();
+        }
+    }
+
+    public void updateAll() {
+        mKeyguardSlice.refresh();
+        mKeyguardSlice.updateSettings();
+        updateVisibilities();
     }
 
     // DateFormat.getBestDateTimePattern is extremely expensive, and refresh is called often.
@@ -516,8 +722,9 @@ public class KeyguardStatusView extends GridLayout implements
     }
 
     private void updateDark() {
+        boolean dark = mDarkAmount == 1;
         if (mLogoutView != null) {
-            mLogoutView.setAlpha((mDarkAmount == 1) ? 0 : 1);
+            mLogoutView.setAlpha(dark ? 0 : 1);
         }
 
         if (mOwnerInfo != null) {
@@ -531,6 +738,8 @@ public class KeyguardStatusView extends GridLayout implements
         mKeyguardSlice.setDarkAmount(mDarkAmount);
         mClockView.setTextColor(blendedTextColor);
         mClockSeparator.setBackgroundColor(blendedTextColor);
+        mCustomClockView.setDark(dark);
+        updateVisibilities();
     }
 
     private void layoutOwnerInfo() {
@@ -542,7 +751,7 @@ public class KeyguardStatusView extends GridLayout implements
             // Calculate how much of it we should crop in order to have a smooth transition
             int collapsed = mOwnerInfo.getTop() - mOwnerInfo.getPaddingTop();
             int expanded = mOwnerInfo.getBottom() + mOwnerInfo.getPaddingBottom();
-            int toRemove = (int)((expanded - collapsed) * ratio);
+            int toRemove = (int) ((expanded - collapsed) * ratio);
             setBottom(getMeasuredHeight() - toRemove);
         }
     }
@@ -568,57 +777,57 @@ public class KeyguardStatusView extends GridLayout implements
     }
 
     private void updateDozeVisibleViews() {
-        for (View child: mVisibleInDoze) {
+        for (View child : mVisibleInDoze) {
             child.setAlpha(mDarkAmount == 1 && mPulsing ? 0.8f : 1);
         }
     }
 
     private boolean shouldShowLogout() {
-        return KeyguardUpdateMonitor.getInstance(mContext).isLogoutEnabled() &&
-            KeyguardUpdateMonitor.getCurrentUser() != UserHandle.USER_SYSTEM;
+        return KeyguardUpdateMonitor.getInstance(mContext).isLogoutEnabled()
+                && KeyguardUpdateMonitor.getCurrentUser() != UserHandle.USER_SYSTEM;
     }
 
     private void onLogoutClicked(View view) {
         int currentUserId = KeyguardUpdateMonitor.getCurrentUser();
         try {
             mIActivityManager.switchUser(UserHandle.USER_SYSTEM);
-            mIActivityManager.stopUser(currentUserId, true /*force*/ , null);
+            mIActivityManager.stopUser(currentUserId, true /*force*/, null);
         } catch (RemoteException re) {
             Log.e(TAG, "Failed to logout user", re);
         }
     }
 
-    private void updateSettings() {
-        final ContentResolver resolver = getContext().getContentResolver();
-        final Resources res = getContext().getResources();
-        mShowWeather = Settings.System.getIntForUser(resolver,
-            Settings.System.OMNI_LOCKSCREEN_WEATHER_ENABLED, 0,
-            UserHandle.USER_CURRENT) == 1;
+//    private void updateSettings() {
+//        final ContentResolver resolver = getContext().getContentResolver();
+//        final Resources res = getContext().getResources();
+//        mShowWeather = Settings.System.getIntForUser(resolver,
+//                Settings.System.OMNI_LOCKSCREEN_WEATHER_ENABLED, 0,
+//                UserHandle.USER_CURRENT) == 1;
 
-        if (mWeatherView != null) {
-            if (mShowWeather) {
-                mWeatherView.setVisibility(View.VISIBLE);
-                mWeatherView.enableUpdates();
-            }
-            if (!mShowWeather) {
-                mWeatherView.setVisibility(View.GONE);
-                mWeatherView.disableUpdates();
-            }
-        }
-    }
+//        if (mWeatherView != null) {
+//            if (mShowWeather) {
+//                mWeatherView.setVisibility(View.VISIBLE);
+//                mWeatherView.enableUpdates();
+//            }
+//            if (!mShowWeather) {
+//                mWeatherView.setVisibility(View.GONE);
+//                mWeatherView.disableUpdates();
+//            }
+//        }
+//    }
 
     private class ClipChildrenAnimationListener extends AnimatorListenerAdapter implements
-    ViewClippingUtil.ClippingParameters {
+            ViewClippingUtil.ClippingParameters {
 
         ClipChildrenAnimationListener() {
-            ViewClippingUtil.setClippingDeactivated(mClockView, true /* deactivated */ ,
-                this /* clippingParams */ );
+            ViewClippingUtil.setClippingDeactivated(mClockView, true /* deactivated */,
+                    this /* clippingParams */);
         }
 
         @Override
         public void onAnimationEnd(Animator animation) {
-            ViewClippingUtil.setClippingDeactivated(mClockView, false /* deactivated */ ,
-                this /* clippingParams */ );
+            ViewClippingUtil.setClippingDeactivated(mClockView, false /* deactivated */,
+                    this /* clippingParams */);
         }
 
         @Override
