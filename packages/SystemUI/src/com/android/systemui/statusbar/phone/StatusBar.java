@@ -286,6 +286,7 @@ import com.android.systemui.statusbar.pie.PieController;
 import com.android.systemui.statusbar.policy.OnHeadsUpChangedListener;
 import com.android.systemui.statusbar.policy.PreviewInflater;
 import com.android.systemui.statusbar.policy.RemoteInputQuickSettingsDisabler;
+import com.android.systemui.statusbar.policy.TelephonyIcons;
 import com.android.systemui.statusbar.policy.UserInfoController;
 import com.android.systemui.statusbar.policy.UserInfoControllerImpl;
 import com.android.systemui.statusbar.policy.UserSwitcherController;
@@ -393,6 +394,27 @@ public class StatusBar extends SystemUI implements DemoMode, TunerService.Tunabl
     public static final int FADE_KEYGUARD_DURATION = 300;
     public static final int FADE_KEYGUARD_DURATION_PULSING = 96;
 
+    private static final String[] QS_TILE_THEMES = {
+        "com.android.systemui.qstile.default", // 0
+        "com.android.systemui.qstile.circletrim", // 1
+        "com.android.systemui.qstile.dualtonecircletrim", // 2
+        "com.android.systemui.qstile.squircletrim", // 3
+        "com.android.systemui.qstile.circlegradient", // 4
+        "com.android.systemui.qstile.wavey", // 5
+        "com.android.systemui.qstile.circledualtone", // 6
+        "com.android.systemui.qstile.pokesign", // 7
+        "com.android.systemui.qstile.ninja", // 8
+        "com.android.systemui.qstile.dottedcircle", // 9
+        "com.android.systemui.qstile.attemptmountain", // 10
+	"com.android.systemui.qstile.squaremedo", // 11
+        "com.android.systemui.qstile.oreo", // 12
+        "com.android.systemui.qstile.oreocircletrim", // 13
+        "com.android.systemui.qstile.oreosquircletrim", // 14
+        "com.android.systemui.qstile.inkdrop", // 15
+        "com.android.systemui.qstile.cookie", // 16
+        "com.android.systemui.qstile.circleoutline", //17
+    };
+
     /** If true, the system is in the half-boot-to-decryption-screen state.
      * Prudently disable QS and notifications.  */
     private static final boolean ONLY_CORE_APPS;
@@ -413,6 +435,8 @@ public class StatusBar extends SystemUI implements DemoMode, TunerService.Tunabl
      * libhwui.
      */
     private static final float SRC_MIN_ALPHA = 0.002f;
+
+    public static boolean USE_OLD_MOBILETYPE = false;
 
     static {
         boolean onlyCoreApps;
@@ -4619,6 +4643,15 @@ public class StatusBar extends SystemUI implements DemoMode, TunerService.Tunabl
     }
 
     /**
+     * Switches qs tile style.
+     */
+     public void updateTileStyle() {
+         int qsTileStyle = Settings.System.getIntForUser(mContext.getContentResolver(),
+                 Settings.System.QS_TILE_STYLE, 0, mLockscreenUserManager.getCurrentUserId());
+        updateNewTileStyle(mOverlayManager, mLockscreenUserManager.getCurrentUserId(), qsTileStyle);
+     }
+
+    /**
      * Switches theme from light to dark and vice-versa.
      */
     protected void updateTheme() {
@@ -4718,6 +4751,11 @@ public class StatusBar extends SystemUI implements DemoMode, TunerService.Tunabl
                     Settings.Secure.SYSUI_ROUNDED_CONTENT_PADDING, (int) (res.getDimension(resourceIdPadding) / density));
             }
         }
+    }
+
+     // Switches qs tile style back to stock.
+    public void stockTileStyle() {
+        stockNewTileStyle(mOverlayManager, mLockscreenUserManager.getCurrentUserId());
     }
 
     private void updateDozingState() {
@@ -5989,6 +6027,12 @@ public class StatusBar extends SystemUI implements DemoMode, TunerService.Tunabl
             resolver.registerContentObserver(Settings.System.getUriFor(
                     Settings.System.LOCKSCREEN_CLOCK_SELECTION),
                     false, this, UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.OMNI_USE_OLD_MOBILETYPE),
+                    false, this, UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+                     Settings.System.QS_TILE_STYLE),
+                    false, this, UserHandle.USER_ALL);
             update();
         }
         @Override
@@ -6012,7 +6056,12 @@ public class StatusBar extends SystemUI implements DemoMode, TunerService.Tunabl
                    uri.equals(Settings.System.getUriFor(Settings.System.LOCKSCREEN_INFO)) ||
                    uri.equals(Settings.System.getUriFor(Settings.System.LOCKSCREEN_CLOCK_SELECTION))) {
                 updateKeyguardStatusSettings();
+            } else if (uri.equals(Settings.System.getUriFor(
+                Settings.System.QS_TILE_STYLE))) {
+                stockTileStyle();
+                updateTileStyle();
             }
+            update();
         }
 
         @Override
@@ -6026,6 +6075,10 @@ public class StatusBar extends SystemUI implements DemoMode, TunerService.Tunabl
             updateCorners();
             handleCutout(null);
             updateKeyguardStatusSettings();
+            USE_OLD_MOBILETYPE = Settings.System.getIntForUser(mContext.getContentResolver(),
+	            Settings.System.OMNI_USE_OLD_MOBILETYPE, 0,
+        	    UserHandle.USER_CURRENT) != 0;
+            TelephonyIcons.updateIcons(USE_OLD_MOBILETYPE);
         }
     }
 
@@ -6046,6 +6099,34 @@ public class StatusBar extends SystemUI implements DemoMode, TunerService.Tunabl
                 Settings.System.STATUS_BAR_TICKER_TICK_DURATION, 3000, UserHandle.USER_CURRENT);
         if (mTicker != null) {
             mTicker.updateTickDuration(mTickerTickDuration);
+        }
+    }
+
+    // Switches qs tile style to user selected.
+    public static void updateNewTileStyle(IOverlayManager om, int userId, int qsTileStyle) {
+        if (qsTileStyle == 0) {
+            stockNewTileStyle(om, userId);
+        } else {
+            try {
+                om.setEnabled(QS_TILE_THEMES[qsTileStyle],
+                        true, userId);
+            } catch (RemoteException e) {
+                Log.w(TAG, "Can't change qs tile style", e);
+            }
+        }
+    }
+
+    // Switches qs tile style back to stock.
+    public static void stockNewTileStyle(IOverlayManager om, int userId) {
+        // skip index 0
+        for (int i = 1; i < QS_TILE_THEMES.length; i++) {
+            String qstiletheme = QS_TILE_THEMES[i];
+            try {
+                om.setEnabled(qstiletheme,
+                        false /*disable*/, userId);
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
         }
     }
 
