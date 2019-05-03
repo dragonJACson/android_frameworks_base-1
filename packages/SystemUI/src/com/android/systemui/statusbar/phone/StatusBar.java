@@ -396,23 +396,20 @@ public class StatusBar extends SystemUI implements DemoMode, TunerService.Tunabl
 
     private static final String[] QS_TILE_THEMES = {
         "com.android.systemui.qstile.default", // 0
-        "com.android.systemui.qstile.circletrim", // 1
-        "com.android.systemui.qstile.dualtonecircletrim", // 2
+        "com.android.systemui.qstile.square", // 1
+        "com.android.systemui.qstile.squircle", // 2
         "com.android.systemui.qstile.squircletrim", // 3
-        "com.android.systemui.qstile.circlegradient", // 4
-        "com.android.systemui.qstile.wavey", // 5
-        "com.android.systemui.qstile.circledualtone", // 6
-        "com.android.systemui.qstile.pokesign", // 7
-        "com.android.systemui.qstile.ninja", // 8
-        "com.android.systemui.qstile.dottedcircle", // 9
-        "com.android.systemui.qstile.attemptmountain", // 10
-	"com.android.systemui.qstile.squaremedo", // 11
-        "com.android.systemui.qstile.oreo", // 12
-        "com.android.systemui.qstile.oreocircletrim", // 13
-        "com.android.systemui.qstile.oreosquircletrim", // 14
-        "com.android.systemui.qstile.inkdrop", // 15
-        "com.android.systemui.qstile.cookie", // 16
-        "com.android.systemui.qstile.circleoutline", //17
+        "com.android.systemui.qstile.hexagon", // 4
+        "com.android.systemui.qstile.teardrop", // 5
+        "com.android.systemui.qstile.diamond", // 6
+        "com.android.systemui.qstile.star", // 7
+        "com.android.systemui.qstile.gear", // 8
+        "com.android.systemui.qstile.badge", // 9
+        "com.android.systemui.qstile.badgetwo", // 10
+        "com.android.systemui.qstile.circletrim", // 11
+        "com.android.systemui.qstile.dualtonecircletrim", // 12
+
+
     };
 
     /** If true, the system is in the half-boot-to-decryption-screen state.
@@ -6726,7 +6723,7 @@ public class StatusBar extends SystemUI implements DemoMode, TunerService.Tunabl
 
     public void updatePieControls(boolean reset) {
         ContentResolver resolver = mContext.getContentResolver();
- 
+
         if (reset) {
             Settings.Secure.putIntForUser(resolver,
                     Settings.Secure.PIE_GRAVITY, 0, UserHandle.USER_CURRENT);
@@ -6735,12 +6732,12 @@ public class StatusBar extends SystemUI implements DemoMode, TunerService.Tunabl
             getOrientationListener();
             toggleOrientationListener(true);
         }
- 
+
         if (mPieController == null) {
             mPieController = PieController.getInstance();
             mPieController.init(mContext, mWindowManager, this);
         }
- 
+
         int gravity = Settings.Secure.getInt(resolver,
                 Settings.Secure.PIE_GRAVITY, 0);
         mPieController.resetPie(!reset, gravity);
