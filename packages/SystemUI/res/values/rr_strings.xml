@@ -137,7 +137,7 @@
    <string name="global_action_reboot_recovery">Recovery</string>
    <string name="global_action_reboot">Restart</string>
 
-    <!-- Pie controls -->  
+    <!-- Pie controls -->
     <string name="pie_date_format" translatable="false">EEEE, dd MMMM yyyy</string>
     <string name="pie_hour_format_12" translatable="false">hh:mm</string>
     <string name="pie_hour_format_24" translatable="false">HH:mm</string>
@@ -150,20 +150,6 @@
     <!-- Smart pixels QS tile -->
     <string name="quick_settings_smart_pixels">Smart pixels</string>
     <string name="quick_settings_smart_pixels_on_power_save">Auto-enabled smart pixels</string>
-
-    <!-- On The Go -->
-    <string name="onthego_notif_ticker">On-The-Go activated</string>
-    <string name="onthego_notif_title">On-The-Go is active</string>
-    <string name="onthego_notif_stop">Stop</string>
-    <string name="onthego_notif_options">Options</string>
-    <string name="onthego_notif_error">Unable to start On-The-Go</string>
-    <string name="onthego_notif_restart">Restart On-The-Go</string>
-    <string name="onthego_notif_camera_changed">Camera mode changed</string>
-    <string name="onthego_transparency">Transparency</string>
-    <string name="onthego_front_camera">Use front camera</string>
-    <string name="onthego_service_toggle">Automatically restart service</string>
-    <string name="onthego_channel_name">Main</string>
-    <string name="global_action_onthego">On-The-Go</string>
 
     <string name="omnijaws_service_error">Error</string>
     <string name="omnijaws_service_unkown">No weather data</string>
@@ -224,4 +210,20 @@
     <string name="qs_onehand_label">OneHand mode</string>
 
     <string name="status_bar_vpn">VPN</string>
+
+    <!-- On The Go -->
+    <string name="global_action_onthego">On-The-Go</string>
+    <string name="onthego_notif_ticker">On-The-Go activated</string>
+    <string name="onthego_notif_title">On-The-Go is active</string>
+    <string name="onthego_notif_stop">Stop</string>
+    <string name="onthego_notif_options">Options</string>
+    <string name="onthego_notif_error">Unable to start On-The-Go</string>
+    <string name="onthego_notif_restart">Restart On-The-Go</string>
+    <string name="onthego_notif_camera_changed">Camera mode changed</string>
+    <string name="onthego_transparency">Transparency</string>
+    <string name="onthego_front_camera">Use front camera</string>
+    <string name="onthego_service_toggle">Automatically restart service</string>
+    <string name="onthego_channel_name">Main</string>
+    <string name="quick_settings_onthego_label">On-The-Go</string>
+
 </resources>
