@@ -1370,6 +1370,13 @@ public final class ViewRootImpl implements ViewParent,
             for (int i = 0; i < mWindowStoppedCallbacks.size(); i++) {
                 mWindowStoppedCallbacks.get(i).windowStopped(stopped);
             }
+
+            if (mStopped) {
+                if (mSurfaceHolder != null) {
+                    notifySurfaceDestroyed();
+                }
+                mSurface.release();
+            }
         }
     }
 
@@ -2241,13 +2248,7 @@ public final class ViewRootImpl implements ViewParent,
                     }
                     mIsCreating = false;
                 } else if (hadSurface) {
-                    mSurfaceHolder.ungetCallbacks();
-                    SurfaceHolder.Callback callbacks[] = mSurfaceHolder.getCallbacks();
-                    if (callbacks != null) {
-                        for (SurfaceHolder.Callback c : callbacks) {
-                            c.surfaceDestroyed(mSurfaceHolder);
-                        }
-                    }
+                    notifySurfaceDestroyed();
                     mSurfaceHolder.mSurfaceLock.lock();
                     try {
                         mSurfaceHolder.mSurface = new Surface();
@@ -2509,6 +2510,16 @@ public final class ViewRootImpl implements ViewParent,
         }
 
         mIsInTraversal = false;
+    }
+
+    private void notifySurfaceDestroyed() {
+        mSurfaceHolder.ungetCallbacks();
+        SurfaceHolder.Callback[] callbacks = mSurfaceHolder.getCallbacks();
+        if (callbacks != null) {
+            for (SurfaceHolder.Callback c : callbacks) {
+                c.surfaceDestroyed(mSurfaceHolder);
+            }
+        }
     }
 
     private void maybeHandleWindowMove(Rect frame) {
@@ -5285,6 +5296,11 @@ public final class ViewRootImpl implements ViewParent,
                             break;
                     }
                 }
+            }
+
+            if (event.getPointerCount() == 3 && isSwipeToScreenshotGestureActive()) {
+                event.setAction(MotionEvent.ACTION_CANCEL);
+                Log.d("teste", "canceling motionEvent because of threeGesture detecting");
             }
 
             mAttachInfo.mUnbufferedDispatchRequested = false;
@@ -8718,6 +8734,15 @@ public final class ViewRootImpl implements ViewParent,
                 // consume anyways so that we don't feed uncaptured key events to other views
                 return true;
             }
+            return false;
+        }
+    }
+
+    private boolean isSwipeToScreenshotGestureActive() {
+        try {
+            return ActivityManager.getService().isSwipeToScreenshotGestureActive();
+        } catch (RemoteException e) {
+            Log.e("teste", "isSwipeToScreenshotGestureActive exception", e);
             return false;
         }
     }
